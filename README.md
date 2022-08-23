@@ -1,4 +1,7 @@
 ## Instructions to login
-- sudo chmod +x login.sh (Only once)
+-  Run following command for first time
+```
+sudo chmod +x login.sh
+```
 - ./login.sh
 - Enjoy
