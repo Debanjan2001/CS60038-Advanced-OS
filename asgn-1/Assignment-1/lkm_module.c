@@ -32,6 +32,11 @@ typedef struct _priority_queue{
     int32_t capacity;
     int32_t count;
     int32_t timer;
+    /* 
+     * 1 = To be read => value 
+     * 2 = To be read => priority
+     */
+    int32_t input_state;
 } priority_queue;
 
 typedef struct hashtable{
@@ -46,7 +51,7 @@ struct hashtable *htable;
 /* Priority Queue Methods */
 static priority_queue* init_priority_queue(int32_t capacity);
 static priority_queue* destroy_priority_queue(priority_queue* pq);
-static int32_t push_value(priority_queue *pq, int32_t value, int32_t priority);
+static int32_t push_value(priority_queue *pq, int32_t num);
 static int32_t pop_value(priority_queue *pq);
 static void heapify_bottom_top(priority_queue *pq, int32_t index);
 static void heapify_top_bottom(priority_queue *pq, int32_t parent_index);
@@ -140,6 +145,7 @@ static priority_queue* init_priority_queue(int32_t capacity){
     pq->count = 0;
     pq->timer = 0;
     pq->arr = (data *)kmalloc_array(capacity, sizeof(data), GFP_KERNEL);
+    pq->input_state = 1;
 
     //check if allocation succeed
 	if (pq->arr == NULL) {
@@ -160,17 +166,29 @@ static priority_queue* destroy_priority_queue(priority_queue* pq){
     return NULL;
 }
 
-static int32_t push_value(priority_queue *pq, int32_t value, int32_t priority){
-    data d = (data){value, priority, pq->timer};
+static int32_t push_value(priority_queue *pq, int32_t num){
+    // data d = (data){value, priority, pq->timer};
 
     if(pq->count >= pq->capacity){
         return -EACCES;
     }
 
-    pq->timer += 1;
-    pq->arr[pq->count] = d;
-    heapify_bottom_top(pq, pq->count);
-    pq->count += 1;
+    if(pq->input_state == 1){
+        pq->arr[pq->count].value = num;
+        pq->arr[pq->count].in_time = pq->timer;
+        
+        pq->input_state = 2;
+    }else{
+        if(num < 0){
+            return -EINVAL;
+        }
+        pq->arr[pq->count].priority = num;
+        heapify_bottom_top(pq, pq->count);
+        pq->count += 1;
+        pq->timer += 1;
+
+        pq->input_state = 1;
+    }
 
     return 0;
 }
@@ -260,7 +278,6 @@ static ssize_t dev_write(struct file* file, const char* inbuffer, size_t inbuffe
     char buffer[256] = {0};
     int32_t buffer_size = 0;
     int32_t num;
-    int32_t pri; 
     int32_t ret;
 
     if(!inbuffer || !inbuffer_size) 
@@ -279,18 +296,22 @@ static ssize_t dev_write(struct file* file, const char* inbuffer, size_t inbuffe
     buffer_size = inbuffer_size < 256 ? inbuffer_size : 256;
 
     if(pq_is_init) {
-        if(inbuffer_size != 8) {
+        if(inbuffer_size != 4) {
             printk(KERN_ALERT DEVICE_NAME ": <dev_write> [PID:%d] %ld bytes received instead of expected 8 bytes[2*sizeof(int)].", current->pid, inbuffer_size);
             return -EINVAL;
         }
 
-        memset(arr, 0, 8*sizeof(char));
+        memset(arr, 0, 4*sizeof(char));
         memcpy(arr, inbuffer, inbuffer_size*sizeof(char));
         memcpy(&num, arr, sizeof(num));
-        memcpy(&pri, arr+sizeof(num), sizeof(pri));
-        printk(KERN_INFO DEVICE_NAME ": <dev_write> [PID:%d] writing (%d, %d) to priority_queue.\n", current->pid, num, pri);
 
-        ret = push_value(proc_entry->pq, num, pri);
+        if(proc_entry->pq->input_state == 1){
+            printk(KERN_INFO DEVICE_NAME ": <dev_write> [PID:%d] received value=%d for inserting into priority_queue.\n", current->pid, num);
+        }else{
+            printk(KERN_INFO DEVICE_NAME ": <dev_write> [PID:%d] received priority=%d for inserting into priority_queue.\n", current->pid, num);
+        }
+
+        ret = push_value(proc_entry->pq, num);
         if(ret < 0) {
             return -EACCES;
         }
@@ -320,7 +341,7 @@ static ssize_t dev_read(struct file* file, char* inbuffer, size_t inbuffer_size,
     int32_t pq_is_init = 0;
     hashtable* proc_entry;
     int32_t pq_top_elem;
-    int32_t pq_top_elem_pri;
+    // int32_t pq_top_elem_pri;
 
     if(!inbuffer || !inbuffer_size) {
         return -EINVAL;
@@ -341,7 +362,8 @@ static ssize_t dev_read(struct file* file, char* inbuffer, size_t inbuffer_size,
 
     if(sizeof(pq_top_elem) != inbuffer_size) {
         printk(KERN_INFO DEVICE_NAME ": <dev_read> [PID:%d] failed to send top of priority_queue due to invalid read by user proc. \n", current->pid);
-        push_value(proc_entry->pq, pq_top_elem, pq_top_elem_pri);
+        // push_value(proc_entry->pq, pq_top_elem, pq_top_elem_pri);
+        push_value(proc_entry->pq, pq_top_elem);
         return -EACCES;
     }
     pq_top_elem = pop_value(proc_entry->pq);

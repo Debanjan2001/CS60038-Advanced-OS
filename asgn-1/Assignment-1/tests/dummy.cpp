@@ -44,12 +44,20 @@ int main() {
     for(auto i : input) {
         arr[0] = i.first;
         arr[1] = i.second;
-        retval = write(fd, arr, 2*sizeof(int));
+        retval = write(fd, arr, sizeof(int));
         if(retval < 0) {
-            pid_cout << "failed to write the value : (" << i.first << ", " << i.second << ")" << endl;
+            pid_cout << "failed to write the value :" << i.first << endl;
             close(fd);
             return -1;
         }
+
+        retval = write(fd, arr+1, sizeof(int));
+        if(retval < 0) {
+            pid_cout << "failed to write the priority :" << i.second << endl;
+            close(fd);
+            return -1;
+        }
+
     }
     int output[1];
 
