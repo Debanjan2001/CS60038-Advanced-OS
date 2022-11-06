@@ -245,6 +245,35 @@ static int32_t pop_value(priority_queue *pq){
     return d.value;
 }
 
+// pq delete max function : remvoes the max element of the priority_queue
+static int32_t pop_max_value(priority_queue *pq){
+    data d = pq->arr[0];
+    int32_t index=0;
+
+    if(pq->count == 0){
+        return -INF;
+    }
+
+    for(int i=1;i < (pq->count);++i){
+        if(pq->arr[i].priority > d.priority){
+            d = pq->arr[i];
+            index = i;
+        }else if(pq->arr[i].priority == d.priority){
+            if(pq->arr[i].in_time > d.in_time){
+                d = pq->arr[i];
+                index = i;
+            }
+        }
+    }
+
+    pq->arr[index] = pq->arr[pq->count - 1];
+    pq->count -= 1;
+    // heapify_top_bottom(pq, index); // is it required?
+    heapify_bottom_top(pq, index);
+
+    return d.value;
+}
+
 // pq helper function 1 : rearranges nodes to maintain priority order in the priority queue
 static void heapify_bottom_top(priority_queue *pq, int32_t index){
     int32_t parent;
@@ -591,6 +620,31 @@ static long dev_ioctl(struct file *file, unsigned int command, unsigned long arg
             /*
              * Left for discussion and writing
             */
+           proc_entry = get_hashtable_entry(current->pid);/* get hashtable entry corresponding to the current process PID */
+            if (proc_entry == NULL) {
+                printk(KERN_ALERT DEVICE ": (dev_ioctl : PB2_GET_MAX) (PID %d) Process entry does not exist", current->pid);
+                return -EACCES;
+            }
+
+            if(proc_entry->pq == NULL){
+                printk(KERN_ALERT DEVICE ": (dev_ioctl : PB2_GET_MAX) (PID %d) Priority Queue not initialized", current->pid);
+			    return -EACCES;
+            }
+
+            if(proc_entry->pq->count == 0){
+                printk(KERN_ALERT DEVICE ": (dev_ioctl : PB2_GET_MAX) (PID %d) Priority Queue is empty", current->pid);
+			    return -EACCES;
+            }
+
+            value = pop_value(proc_entry->pq);
+            retval = copy_to_user((int32_t*)arg, (int32_t*)&value, sizeof(int32_t));
+            if(retval != 0){
+                printk(KERN_INFO DEVICE ": (dev_ioctl : PB2_GET_MAX) (PID %d) Error! Unable to send data of %ld bytes with value %d to the user process", current->pid, sizeof(value), value);
+                return -EACCES;
+            }
+
+            printk(KERN_INFO DEVICE ": (dev_ioctl : PB2_GET_MAX) (PID %d) Sending data of %ld bytes with value %d to the user process", current->pid, sizeof(value), value);
+            
             break;
 
         default: 
