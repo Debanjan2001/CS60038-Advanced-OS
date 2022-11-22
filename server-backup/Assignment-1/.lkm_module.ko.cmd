@@ -1,1 +1,0 @@
-cmd_/home/Debanjan-Pritkumar/Assignment-1/lkm_module.ko := ld -r -m elf_x86_64  -z max-page-size=0x200000  --build-id  -T ./scripts/module-common.lds -o /home/Debanjan-Pritkumar/Assignment-1/lkm_module.ko /home/Debanjan-Pritkumar/Assignment-1/lkm_module.o /home/Debanjan-Pritkumar/Assignment-1/lkm_module.mod.o;  true

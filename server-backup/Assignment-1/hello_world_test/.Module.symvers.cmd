@@ -1,1 +1,0 @@
-cmd_/home/Debanjan-Pritkumar/Assignment-1/hello_world_test/Module.symvers := sed 's/\.ko$$/\.o/' /home/Debanjan-Pritkumar/Assignment-1/hello_world_test/modules.order | scripts/mod/modpost -m -a  -o /home/Debanjan-Pritkumar/Assignment-1/hello_world_test/Module.symvers -e -i Module.symvers   -T -
